@@ -27,5 +27,7 @@ class WebhookServerServiceProvider extends PackageServiceProvider
         $this->publishes([
             __DIR__.'/CallWebhookJob.php' => app_path('Jobs/LaravelWebhookServer/CallWebhookJob.php')
         ], 'laravel-webhook-server-job');
+
+        parent::boot();
     }
 }
