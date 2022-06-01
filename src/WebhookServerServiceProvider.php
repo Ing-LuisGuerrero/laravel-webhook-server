@@ -23,5 +23,9 @@ class WebhookServerServiceProvider extends PackageServiceProvider
         $this->publishes([
             __DIR__.'/Models/' => app_path('Models')
         ], 'laravel-webhook-server-models');
+
+        $this->publishes([
+            __DIR__.'/CallWebhookJob.php' => app_path('Jobs/LaravelWebhookServer/CallWebhookJob.php')
+        ], 'laravel-webhook-server-job');
     }
 }
