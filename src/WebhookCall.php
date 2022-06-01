@@ -2,6 +2,7 @@
 
 namespace Spatie\WebhookServer;
 
+use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\PendingDispatch;
 use Illuminate\Support\Str;
 use Spatie\WebhookServer\BackoffStrategy\BackoffStrategy;
@@ -12,7 +13,7 @@ use Spatie\WebhookServer\Signer\Signer;
 
 class WebhookCall
 {
-    protected CallWebhookJob $callWebhookJob;
+    protected ShouldQueue $callWebhookJob;
 
     protected string $uuid = '';
 
@@ -47,7 +48,7 @@ class WebhookCall
 
     public function __construct()
     {
-        $this->callWebhookJob = app(CallWebhookJob::class);
+        $this->callWebhookJob = app(config('webhook-server.webhook_job'));
     }
 
     public function url(string $url): self
