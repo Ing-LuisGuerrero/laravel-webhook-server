@@ -22,6 +22,6 @@ class WebhookServerServiceProvider extends PackageServiceProvider
 
         $this->publishes([
             __DIR__.'/Models/' => app_path('Models')
-        ], 'courier-config');
+        ], 'laravel-webhook-server-models');
     }
 }
