@@ -1,6 +1,3 @@
-
-[<img src="https://github-ads.s3.eu-central-1.amazonaws.com/support-ukraine.svg?t=1" />](https://supportukrainenow.org)
-
 # Send webhooks from Laravel apps
 
 [![Latest Version on Packagist](https://img.shields.io/packagist/v/spatie/laravel-webhook-server.svg?style=flat-square)](https://packagist.org/packages/spatie/laravel-webhook-server)
@@ -81,12 +78,28 @@ return [
      * This class determines how many seconds there should be between attempts.
      */
     'backoff_strategy' => \Spatie\WebhookServer\BackoffStrategy\ExponentialBackoffStrategy::class,
+        
+    /*
+     * This class is used to dispatch webhooks on to the queue.
+     */
+    'webhook_job' => \Spatie\WebhookServer\CallWebhookJob::class,
 
     /*
      * By default we will verify that the ssl certificate of the destination
      * of the webhook is valid.
      */
     'verify_ssl' => true,
+    
+    /*
+     * When set to true, an exception will be thrown when the last attempt fails
+     */
+    'throw_exception_on_failure' => false,
+
+    /*
+     * When using Laravel Horizon you can specify tags that should be used on the
+     * underlying job that performs the webhook request.
+     */
+    'tags' => [],
 ];
 ```
 
@@ -116,6 +129,28 @@ If you would like to call the webhook immediately (synchronously), you may use t
 WebhookCall::create()
    ...
    ->dispatchSync();
+```
+
+### Conditionally sending webhooks
+
+If you would like to conditionally dispatch a webhook, you may use the `dispatchIf`, `dispatchUnless`, `dispatchSyncIf` and `dispatchSyncUnless` methods:
+
+```php
+WebhookCall::create()
+   ...
+   ->dispatchIf($condition);
+
+WebhookCall::create()
+   ...
+   ->dispatchUnless($condition);
+
+WebhookCall::create()
+   ...
+   ->dispatchSyncIf($condition);
+
+WebhookCall::create()
+   ...
+   ->dispatchSyncUnless($condition);
 ```
 
 ### How signing requests works
@@ -162,7 +197,7 @@ interface Signer
 }
 ```
 
-After creating your signer, you can specify it's class name in the `signer` key of the `webhook-server` config file. Your signer will then be used by default in all webhook calls.
+After creating your signer, you can specify its class name in the `signer` key of the `webhook-server` config file. Your signer will then be used by default in all webhook calls.
 
 You can also specify a signer for a specific webhook call:
 
@@ -210,7 +245,7 @@ interface BackoffStrategy
 }
 ```
 
-You can make your custom strategy the default strategy by specifying it's fully qualified class name in the `backoff_strategy` of the `webhook-server` config file. Alternatively, you can specify a strategy for a specific webhook like this.
+You can make your custom strategy the default strategy by specifying its fully qualified class name in the `backoff_strategy` of the `webhook-server` config file. Alternatively, you can specify a strategy for a specific webhook like this.
 
 ```php
 WebhookCall::create()
@@ -246,6 +281,19 @@ WebhookCall::create()
     ...
     ->dispatch();
 ```
+
+### Using a proxy
+
+You can direct webhooks through a proxy by specifying the `proxy` key in the `webhook-server` config file. To set a proxy for a specific
+request, you can use the `useProxy` call.
+
+```php
+WebhookCall::create()
+    ->useProxy('http://proxy.server:3128')
+    ...
+```
+
+The proxy specification follows the [guzzlehttp proxy format](https://docs.guzzlephp.org/en/stable/request-options.html#proxy)
 
 ### Verifying the SSL certificate of the receiving app
 

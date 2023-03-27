@@ -9,21 +9,26 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        php: [8.1, 8.0]
-        laravel: [9.*, 8.*]
+        php: [8.2, 8.1, 8.0]
+        laravel: [10.*, 9.*, 8.*]
         os: [ubuntu-latest]
-        dependency-version: [prefer-lowest, prefer-stable]
+        dependency-version: [prefer-stable]
         include:
+          - laravel: 10.*
+            testbench: 8.*
           - laravel: 9.*
             testbench: 7.*
           - laravel: 8.*
             testbench: ^6.23
+        exclude:
+          - laravel: 10.*
+            php: 8.0
 
     name: P${{ matrix.php }} - L${{ matrix.laravel }} - ${{ matrix.dependency-version }} - ${{ matrix.os }}
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
@@ -34,8 +39,8 @@ jobs:
 
       - name: Install dependencies
         run: |
-          composer require "laravel/framework:${{ matrix.laravel }}" "orchestra/testbench:${{ matrix.testbench }}" --no-interaction --no-update
+          composer require "laravel/framework:${{ matrix.laravel }}" "nesbot/carbon:^2.63" "orchestra/testbench:${{ matrix.testbench }}" --no-interaction --no-update
           composer update --${{ matrix.dependency-version }} --prefer-dist --no-interaction --no-suggest
 
       - name: Execute tests
-        run: vendor/bin/phpunit
+        run: vendor/bin/pest

@@ -8,6 +8,7 @@ use Spatie\WebhookServer\BackoffStrategy\BackoffStrategy;
 use Spatie\WebhookServer\Exceptions\CouldNotCallWebhook;
 use Spatie\WebhookServer\Exceptions\InvalidBackoffStrategy;
 use Spatie\WebhookServer\Exceptions\InvalidSigner;
+use Spatie\WebhookServer\Exceptions\InvalidWebhookJob;
 use Spatie\WebhookServer\Signer\Signer;
 
 class WebhookCall
@@ -31,6 +32,7 @@ class WebhookCall
         $config = config('webhook-server');
 
         return (new static())
+            ->useJob($config['webhook_job'])
             ->uuid(Str::uuid())
             ->onQueue($config['queue'])
             ->onConnection($config['connection'] ?? null)
@@ -42,12 +44,12 @@ class WebhookCall
             ->withHeaders($config['headers'])
             ->withTags($config['tags'])
             ->verifySsl($config['verify_ssl'])
-            ->throwExceptionOnFailure($config['throw_exception_on_failure']);
+            ->throwExceptionOnFailure($config['throw_exception_on_failure'])
+            ->useProxy($config['proxy']);
     }
 
     public function __construct()
     {
-        $this->callWebhookJob = app(CallWebhookJob::class);
     }
 
     public function url(string $url): self
@@ -179,6 +181,13 @@ class WebhookCall
         return $this;
     }
 
+    public function useProxy(array|string|null $proxy = null): self
+    {
+        $this->callWebhookJob->proxy = $proxy;
+
+        return $this;
+    }
+
     public function meta(array $meta): self
     {
         $this->callWebhookJob->meta = $meta;
@@ -193,6 +202,19 @@ class WebhookCall
         return $this;
     }
 
+    public function useJob(string $webhookJobClass): self
+    {
+        $job = app($webhookJobClass);
+
+        if (! $job instanceof CallWebhookJob) {
+            throw InvalidWebhookJob::doesNotExtendCallWebhookJob($webhookJobClass);
+        }
+
+        $this->callWebhookJob = $job;
+
+        return $this;
+    }
+
     public function dispatch(): PendingDispatch
     {
         $this->prepareForDispatch();
@@ -200,11 +222,37 @@ class WebhookCall
         return dispatch($this->callWebhookJob);
     }
 
+    public function dispatchIf($condition): PendingDispatch|null
+    {
+        if ($condition) {
+            return $this->dispatch();
+        }
+
+        return null;
+    }
+
+    public function dispatchUnless($condition): PendingDispatch|null
+    {
+        return $this->dispatchIf(! $condition);
+    }
+
     public function dispatchSync(): void
     {
         $this->prepareForDispatch();
 
         dispatch_sync($this->callWebhookJob);
+    }
+
+    public function dispatchSyncIf($condition): void
+    {
+        if ($condition) {
+            $this->dispatchSync();
+        }
+    }
+
+    public function dispatchSyncUnless($condition): void
+    {
+        $this->dispatchSyncIf(! $condition);
     }
 
     protected function prepareForDispatch(): void

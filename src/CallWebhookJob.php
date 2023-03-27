@@ -4,6 +4,7 @@ namespace Spatie\WebhookServer;
 
 use Exception;
 use GuzzleHttp\Client;
+use GuzzleHttp\ClientInterface;
 use GuzzleHttp\Exception\ConnectException;
 use GuzzleHttp\Exception\RequestException;
 use GuzzleHttp\Psr7\Response;
@@ -25,6 +26,8 @@ class CallWebhookJob implements ShouldQueue
     public ?string $webhookUrl = null;
 
     public string $httpVerb;
+
+    public string|array|null $proxy = null;
 
     public int $tries;
 
@@ -51,19 +54,16 @@ class CallWebhookJob implements ShouldQueue
 
     public string $uuid = '';
 
-    private ?Response $response = null;
+    protected ?Response $response = null;
 
-    private ?string $errorType = null;
+    protected ?string $errorType = null;
 
-    private ?string $errorMessage = null;
+    protected ?string $errorMessage = null;
 
-    private ?TransferStats $transferStats = null;
+    protected ?TransferStats $transferStats = null;
 
     public function handle()
     {
-        /** @var \GuzzleHttp\Client $client */
-        $client = app(Client::class);
-
         $lastAttempt = $this->attempts() >= $this->tries;
 
         try {
@@ -71,14 +71,7 @@ class CallWebhookJob implements ShouldQueue
                 ? ['query' => $this->payload]
                 : ['body' => json_encode($this->payload)];
 
-            $this->response = $client->request($this->httpVerb, $this->webhookUrl, array_merge([
-                'timeout' => $this->requestTimeout,
-                'verify' => $this->verifySsl,
-                'headers' => $this->headers,
-                'on_stats' => function (TransferStats $stats) {
-                    $this->transferStats = $stats;
-                },
-            ], $body));
+            $this->response = $this->createRequest($body);
 
             if (! Str::startsWith($this->response->getStatusCode(), 2)) {
                 throw new Exception('Webhook call failed');
@@ -110,7 +103,7 @@ class CallWebhookJob implements ShouldQueue
 
             $this->dispatchEvent(WebhookCallFailedEvent::class);
 
-            if ($lastAttempt) {
+            if ($lastAttempt || $this->shouldBeRemovedFromQueue()) {
                 $this->dispatchEvent(FinalWebhookCallFailedEvent::class);
 
                 $this->throwExceptionOnFailure ? $this->fail($exception) : $this->delete();
@@ -126,6 +119,30 @@ class CallWebhookJob implements ShouldQueue
     public function getResponse(): ?Response
     {
         return $this->response;
+    }
+
+    protected function getClient(): ClientInterface
+    {
+        return app(Client::class);
+    }
+
+    protected function createRequest(array $body): Response
+    {
+        $client = $this->getClient();
+
+        return $client->request($this->httpVerb, $this->webhookUrl, array_merge([
+            'timeout' => $this->requestTimeout,
+            'verify' => $this->verifySsl,
+            'headers' => $this->headers,
+            'on_stats' => function (TransferStats $stats) {
+                $this->transferStats = $stats;
+            },
+        ], $body, is_null($this->proxy) ? [] : ['proxy' => $this->proxy]));
+    }
+
+    protected function shouldBeRemovedFromQueue(): bool
+    {
+        return false;
     }
 
     private function dispatchEvent(string $eventClass)

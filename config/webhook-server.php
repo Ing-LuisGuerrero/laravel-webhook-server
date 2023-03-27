@@ -18,6 +18,13 @@ return [
     'http_verb' => 'post',
 
     /*
+     * Proxies to use for request.
+     *
+     * See https://docs.guzzlephp.org/en/stable/request-options.html#proxy
+     */
+    'proxy' => null,
+
+    /*
      * This class is responsible for calculating the signature that will be added to
      * the headers of the webhook request. A webhook client can use the signature
      * to verify the request hasn't been tampered with.
@@ -51,6 +58,11 @@ return [
      * This class determines how many seconds there should be between attempts.
      */
     'backoff_strategy' => \Spatie\WebhookServer\BackoffStrategy\ExponentialBackoffStrategy::class,
+
+    /*
+     * This class is used to dispatch webhooks on to the queue.
+     */
+    'webhook_job' => \Spatie\WebhookServer\CallWebhookJob::class,
 
     /*
      * By default we will verify that the ssl certificate of the destination
